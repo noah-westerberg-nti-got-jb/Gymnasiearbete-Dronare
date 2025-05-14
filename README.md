@@ -7,6 +7,7 @@ This repository contains the software part of a multi-person project with the go
 - [Remote Controlled Drone](#remote-controlled-drone)
   - [Table of Contents](#table-of-contents)
   - [Project Abstract](#project-abstract)
+  - [Materials](#materials)
   - [Drone](#drone)
     - [Basic Structure](#basic-structure)
       - [Setup](#setup)
@@ -63,6 +64,21 @@ This repository contains the software part of a multi-person project with the go
 ## Project Abstract
 
 ....
+
+## Materials
+
+- 4 DarwinFPV 1104 motors
+- 4 Gemfan 3016 propellers
+- 2 Ebyte E01-ML01DP5 radio tranceivers
+- 1 MPU 6050 gyroscope/accelerometer
+- 1 Capacitor
+- 1 7.4 Volt 3000 mAh LiPo 2S battery
+- 1 3.7 Volt 300 mAh LiPo 1S battery
+- 1 Jhemcu EM-40A 4 in 1 ESC
+- 1 Arduino MKR Zero
+- 1 Arduino Uno
+- 3D-printer + filament
+- Soldering and wire handling equipment
 
 ## Drone
 
