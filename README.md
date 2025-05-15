@@ -25,9 +25,7 @@ This repository contains the software part of a multi-person project with the go
       - [`Orientation`](#orientation)
       - [`RadioSendStack`](#radiosendstack)
       - [`Timer` (drone)](#timer-drone)
-      - [Custom Data Types](#custom-data-types)
-        - [`vector3<T>`](#vector3t)
-        - [`SmoothValue`](#smoothvalue)
+      - [`vector3<T>`](#vector3t)
         - [Other](#other)
     - [Summary of Drone](#summary-of-drone)
   - [Receiver](#receiver)
@@ -90,7 +88,7 @@ This repository contains the software part of a multi-person project with the go
 
 [`Drone.ino`](Drone/Drone.ino) is the sketch file for the drone and, by using both public `Arduino` libraries and the custom-made [`DroneLibrary`](DroneLibrary), it handles the control flow for the drone.
 
-> **_NOTE:_** To use `DroneLibrary` with the Arduino IDE, copy the `DroneLibrary` folder into your `Arduino/libraries` directory
+> **_NOTE:_** To use `DroneLibrary` with the Arduino IDE, copy the `DroneLibrary` folder into your `Arduino/libraries` directory.
 
 #### Setup
 
@@ -106,57 +104,44 @@ void setup() {
     radio.openReadingPipe(1, RECEIVER_ADDRESS);
     radio.startListening();
 
-    ...
-}
-```
-
-Firstly, the radio transceiver is configured:
-- `radio.begin()`, from the [`RF24`](https://github.com/nRF24/RF24) class, is called to initialize the radio transceiver.
-- `configureRadio(radio)` is called to configure the transceiver's settings.
-- Writing and reading pipes are opened with addresses defined in [`RadioData.h`](DroneLibrary/RadioData.h).
-- `radio.startListening()` is called for the transceiver to start listening for instructions.
-
-> **_NOTE:_** The transceiver's begin and configuration functions are placed into while loops to prevent the program from proceeding if any part fails.
-
-```cpp
-void setup() {
-    ...
-
     motorController.setTargetValues(&targetVelocity, &targetPitch, &targetRoll);
-    motorController.setVelocityConstants(&PID_Velocity);
-    motorController.setPitchConstants(&PID_Pitch);
-    motorController.setRollConstants(&PID_Roll);
+    motorController.setVelocityConstants(PID_Velocity);
+    motorController.setPitchConstants(PID_Pitch);
+    motorController.setRollConstants(PID_Roll);
 
-    pinMode(MOTOR_TL_Pin, OUTPUT);
-    pinMode(MOTOR_TR_Pin, OUTPUT);
-    pinMode(MOTOR_BR_Pin, OUTPUT);
-    pinMode(MOTOR_BL_Pin, OUTPUT);
+    motorTL.attach(MOTOR_TL_Pin, 1000, 2000);
+    motorTR.attach(MOTOR_TR_Pin, 1000, 2000);
+    motorBR.attach(MOTOR_BR_Pin, 1000, 2000);
+    motorBL.attach(MOTOR_BL_Pin, 1000, 2000);
 
-    ...
-}
-```
-Secondly, the motors are configured:
-- First, values for the [`MotorController`](#motorcontroller) class are set.
-- Then, the pin modes for the motor pins are set to output.
-
-```cpp
-void setup() {
-    ...
+    motorTL.writeMicroseconds(1000);
+    motorTR.writeMicroseconds(1000);
+    motorBR.writeMicroseconds(1000);
+    motorBL.writeMicroseconds(1000);
 
     previousTime = micros();
-
-    sendTimer.start(sendTime);
 
     radioLogPush("Connected");
 
     ...
 }
 ```
-Lastly, the time variable is initialized, a countdown timer for when to send and not send is activated, and a message is pushed that will send immediately when the drone is connected to the controller.
+
+Firstly, the radio transceiver is configured:
+- `radio.begin()` initializes the radio transceiver.
+- `configureRadio(radio)` configures the transceiver's settings.
+- Writing and reading pipes are opened with addresses defined in [`RadioData.h`](DroneLibrary/RadioData.h).
+- `radio.startListening()` enables the transceiver to listen for instructions.
+
+Secondly, the motor controller and motors are configured:
+- The `MotorController` is set up with target values and PID constants.
+- The motors are attached to their respective pins and initialized to their off position (1000 microseconds).
+
+Lastly, the initial time is recorded, and a connection message is queued for transmission.
 
 #### Main Loop
 
-The main control flow is found within the `loop` function and can be divided into three sections: radio input, flight control, and radio output. At the top of the block, the `setDeltaTime` function is used to set the current time delta.
+The main control flow is found within the `loop` function and can be divided into three sections: radio input, flight control, and radio output.
 
 ##### Radio Input
 
@@ -164,7 +149,7 @@ The main control flow is found within the `loop` function and can be divided int
 void loop() {
     setDeltaTime();
 
-    if (radio.available() && !sendTimer.finished()) {
+    if (radio.available()) {
         radio.read(&messageIn, sizeof(messageIn));
         switch (messageIn.messageType) {
             case _MSG_CONTROLLER_INPUT:
@@ -180,38 +165,37 @@ void loop() {
 }
 ```
 
-This part of the code periodically checks if a radio message is available and, if so, it reads it and interprets the message. The messages are passed through a switch that checks their message type (as defined in [`RadioData.h`](DroneLibrary/RadioData.h)) and executes a set of instructions based on what type of message it is.
+This part of the code checks for incoming radio messages and processes them based on their type. It handles controller input, activation/deactivation commands, PID updates, and target range updates.
 
 ##### Flight Control
 
 ```cpp
 void loop() {
-  ...
+    ...
 
-  if (activated) {
-      orientation.update(deltaTime);
-      motorController.calculatePower(orientation.velocity.z, orientation.angles.x, orientation.angles.y, deltaTime);
+    if (activated) {
+        orientation.update(deltaTime);
+        motorController.calculatePower(orientation.velocity.z, orientation.angles.x, orientation.angles.y, deltaTime);
 
-      analogWrite(MOTOR_TL_Pin, uint8_t(127 + motorPowerTL));   
-      analogWrite(MOTOR_TR_Pin, uint8_t(127 + motorPowerTR));   
-      analogWrite(MOTOR_BR_Pin, uint8_t(127 + motorPowerBR));   
-      analogWrite(MOTOR_BL_Pin, uint8_t(127 + motorPowerBL));
-    }
-    else {
-      if (miscTimer.finished(1000)) {
-            if (sendStack.getCount() < 10)
-              radioLogPush("Waiting for activation");
+        motorTL.writeMicroseconds(map(motorPowerTL, -127, 127, 1000, 2000));
+        motorTR.writeMicroseconds(map(motorPowerTR, -127, 127, 1000, 2000));
+        motorBR.writeMicroseconds(map(motorPowerBR, -127, 127, 1000, 2000));
+        motorBL.writeMicroseconds(map(motorPowerBL, -127, 127, 1000, 2000));
+    } else {
+        if (miscTimer.finished(1000)) {
+            radioLogPush("Waiting for activation");
+        } else {
+            miscTimer.start(1000);
         }
-        else miscTimer.start(1000);
     }
 
-  ...
+    ...
 }
 ```
 This part of the code updates the drone's sensor readings and calculates the required power for each motor if the drone is activated. 
 - Firstly, the `update` method from the [Orientation](DroneLibrary/Orientation.h) class is called to collect and process data from the drone's gyroscope.
 - Secondly, the new values are passed into the [`MotorController`](#motorcontroller) class' `calculatePower` method to calculate the optimal motor powers for the current moment.
-- Lastly, the `Arduino` `analogWrite` function is used with digital pins to create a `PWM` signal to the motors.
+- Lastly, a signal with the desired power is sent to each of the motors using `writeMicroseconds`.
 
 If the drone isn't activated, it periodically sends a message to the controller which displays that it is connected and ready to be activated.
 
@@ -219,43 +203,19 @@ If the drone isn't activated, it periodically sends a message to the controller 
 
 ```cpp
 void loop() {
-  ...
+    ...
 
-  // Output
-  if (sendTimer.finished(sendTime)) 
-    if (!sendRadio()) sendTimer.start(0); 
-    
-  sequenceTelemetry();
+    if (sending) {
+        sending = !sendRadio();
+    }
 
-  ...
+    sequenceTelemetry();
+
+    ...
 }
 ```
 
-This part of the code controls the radio output of the drone. It periodically sends its saved-up output messages, stored in a [`RadioSendStack`](#radiosendstack) object, and sequences new telemetry messages with the `sequenceTelemetry` function.
-
-```cpp
-void sequenceTelemetry() {
-  if (sendStack.getCount() > 0)
-    return;
-
-  sequenceVector(orientation.adjustedAcceleration, _MSG_DRONE_ACCELERATION);
-  sequenceVector(orientation.velocity, _MSG_DRONE_VELOCITY);
-  sequenceVector(orientation.rawAngularVelocity, _MSG_DRONE_ANGULAR_VELOCITY);
-  sequenceVector(orientation.angles, _MSG_DRONE_ANGLES);
-
-  messageOut.messageType = _MSG_DRONE_DELTATIME;
-  memcpy(messageOut.dataBuffer, &deltaTime, sizeof(deltaTime));
-  sendStack.push(messageOut);
-
-  messageOut.messageType = _MSG_DRONE_MOTOR_POWERS;
-  MotorPowers motorPowers = {motorPowerTL, motorPowerTR, motorPowerBR, motorPowerBL};
-  memcpy(messageOut.dataBuffer, &motorPowers, sizeof(motorPowers));
-  sendStack.push(messageOut);
-
-  messageOut.messageType = (activated) ? _MSG_ACTIVATE : _MSG_DEACTIVATE;
-  sendStack.push(messageOut);
-}
-```
+This part of the code handles outgoing radio messages. It sends queued messages and sequences telemetry data for transmission.
 
 #### Important Helper Functions
 
@@ -275,82 +235,68 @@ void setDeltaTime() {
     }
 }
 ```
-It is used to set the current time delta using the `Arduino's` `micros` function.
+
+Calculates the time delta between the current and previous loop iterations.
 
 ##### `sendRadio`
 
 ```cpp
 bool sendRadio() {
-    bool result = false;
+    if (sendStack.getCount() <= 0) return true;
+
     radio.stopListening();
-    while (sendStack.getCount() > 0) {
-        RadioMessage message = sendStack.pop();
-        result = radio.write(&message, sizeof(message));
-        if (!result) {
-            sendStack.push(message);
-            break;
-        }
+    RadioMessage message = sendStack.pop();
+    bool result = radio.write(&message, sizeof(message));
+    if (!result) {
+        sendStack.push(message);
     }
     radio.startListening();
     return result;
 }
 ```
-It begins by stopping the radio device from listening to messages, which is required to write messages, and enters into a loop that continues until either:
-- There are no more messages to send.
-- A message fails to send.
 
-It ends by reactivating the listening capabilities of the radio device.
-
-- A reference to the [`RadioSendStack`](#radiosendstack) class is used to manage the list of messages.
+Sends queued radio messages and retries if a message fails to send.
 
 ##### Activation and Deactivation Functions
 
 ```cpp
 void activate() {
-  if (activated) return;
-  activated = true;
-  orientation.begin(500);
-  #ifndef DEBUG
-  // Ramp up motors to 50%
-  uint8_t power = 0;
-  float time = 0;
-  while (time < 1) {
-      setDeltaTime();
-      analogWrite(MOTOR_TL_Pin, power);
-      analogWrite(MOTOR_TR_Pin, power);
-      analogWrite(MOTOR_BR_Pin, power);
-      analogWrite(MOTOR_BL_Pin, power);
-      time += deltaTime;
-      power = 128 * time;
+    if (activated) return;
+    activated = true;
+    orientation.begin(500);
+    uint16_t power = 1000;
+    float time = 0;
+    while (time < 1) {
+        setDeltaTime();
+        motorTL.writeMicroseconds(power);
+        motorTR.writeMicroseconds(power);
+        motorBR.writeMicroseconds(power);
+        motorBL.writeMicroseconds(power);
+        time += deltaTime;
+        power = 1000 + (time * 500);
   }
-  #endif
-
-  radioLogPush("Activation complete");
+    radioLogPush("Activation complete");
 }
 
 void deactivate() {
   if (!activated) return;
   activated = false;
   orientation.end();
-  #ifndef DEBUG
-  // Ramp down motors to 0%
-  uint8_t power = 0;
+  uint16_t power = 1500;
   float time = 0;
   while (time < 1) {
       setDeltaTime();
-      analogWrite(MOTOR_TL_Pin, power);
-      analogWrite(MOTOR_TR_Pin, power);
-      analogWrite(MOTOR_BR_Pin, power);
-      analogWrite(MOTOR_BL_Pin, power);
+      motorTL.writeMicroseconds(power);
+      motorTR.writeMicroseconds(power);
+      motorBR.writeMicroseconds(power);
+      motorBL.writeMicroseconds(power);
       time += deltaTime;
-      power = 128 * (1 - time);
+      power = 1500 - (time * 500);
   }
-  #endif
-  digitalWrite(MOTOR_TL_Pin, LOW);
-  digitalWrite(MOTOR_TR_Pin, LOW);
-  digitalWrite(MOTOR_BR_Pin, LOW);
-  digitalWrite(MOTOR_BL_Pin, LOW);
-  radioLogPush("Deactivated");
+  motorTL.writeMicroseconds(1000);
+  motorTR.writeMicroseconds(1000);
+  motorBR.writeMicroseconds(1000);
+  motorBL.writeMicroseconds(1000);
 }
 ```
 
@@ -422,31 +368,41 @@ The [`MotorController`](DroneLibrary/MotorController.h) class combines multiple 
 The [`Orientation`](DroneLibrary/Orientation.h) class is used to collect data from a connected [`MPU60X0`](https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/) gyroscope-accelerometer and process it into usable acceleration, velocity, and Euler-angle vectors.
 
 **To use the class:**
-1. First, create an object by passing the MPU address.
+1. First, create an object.
    ```cpp
-    Orientation orientation(MPUAddress);
+   Orientation orientation(MPUAddress, positionOffset);
    ```
-2. Then, use the `begin` method to initialize the MPU and calculate stationary offsets.
+   - `MPUAddress`: The I2C address of the MPU.
+   - `positionOffset`: The sensor's offset from the center of gravity.
+
+2. **Initialize the MPU:**
    ```cpp
-    orientation.begin();
+   orientation.begin();
    ```
    - Optionally, pass the number of cycles for offset calculation:
      ```cpp
      orientation.begin(500);
      ```
-3. Use the `update` method to read data from the MPU and update the orientation.
+
+3. **Update orientation data:**
    ```cpp
    orientation.update(deltaTime);
    ```
-4. Finally, use the public member variables to access the calculated orientation data:
+
+4. **Access processed data:**
    - `rawAngularVelocity`: Raw angular velocity from the gyroscope (**°/s**).
-   - `angularVelocity`: Adjusted angular velocity (**°/s**).
    - `angles`: Euler angles (**°**).
-   - `acceleration`: Raw acceleration from the accelerometer (**m/s²**).
+   - `rawAcceleration`: Raw acceleration from the accelerometer (**m/s²**).
+   - `acceleration`: Corrected acceleration at the center of gravity (**m/s²**).
    - `adjustedAcceleration`: Acceleration adjusted to the world frame (**m/s²**).
    - `velocity`: Velocity calculated from the adjusted acceleration (**m/s**).
 
-> **_NOTE:_** The `adjustedAcceleration` and velocity vectors are adjusted to fixed axes that are set when `begin` is called.
+5. **End the session:**
+   ```cpp
+   orientation.end();
+   ```
+
+The `Orientation` class provides robust tools for processing sensor data, making it ideal for applications requiring precise motion tracking and orientation correction.
 
 #### `RadioSendStack`
 
@@ -512,14 +468,36 @@ The [`Timer`](DroneLibrary/Timer.h) class is a utility for managing timed events
    timer.stop();
    ```
 
-#### Custom Data Types
+#### `vector3<T>`
 
-##### `vector3<T>`
-The [`vector3<T>`](DroneLibrary/Vectors.h) struct is a 3-dimensional vector that can be made up of values of any type. It also defines basic vector operations.
+The [`vector3<T>`](DroneLibrary/Vectors.h) struct is a 3-dimensional vector template for simplifying vector calculations in tasks like physics simulations and orientation tracking.
 
-##### `SmoothValue`
-The [`SmoothValue`](DroneLibrary/SmoothValue.h) class represents a floating-point value, but with operations that function like a lerp function, that set the new value somewhere between the current value and the desired value according to a `smoothingFactor`. 
-> **_NOTE:_** There is also a method to directly set the value without any smoothing.
+**Features:**
+- **Basic Operations**: Addition, subtraction, scalar multiplication, and division.
+- **Dot Product**: Calculates the scalar product of two vectors.
+- **Cross Product**: Calculates the vector product of two vectors.
+- **Magnitude**: Computes the vector's length.
+- **Projection**: Projects one vector onto another.
+
+**To use the class:**
+1. Create a vector:
+   ```cpp
+   vector3<float> v1 = {1.0, 2.0, 3.0};
+   ```
+2. Perform operations:
+   ```cpp
+   vector3<float> sum = v1 + v2; // Addition
+   float dot = v1 * v2;          // Dot product
+   vector3<float> cross = crossProduct(v1, v2); // Cross product
+   ```
+
+**Public Members:**
+- `T x, y, z`: The vector components.
+
+**Public Methods:**
+- `float magnitude()`: Returns the vector's length.
+
+The `vector3<T>` struct is a versatile tool for 3D vector calculations, ideal for physics, robotics, and drone orientation systems.
 
 ##### Other
 
@@ -558,7 +536,7 @@ struct RadioMessage {
 
 ### Summary of [Drone](#drone)
 
-The `Drone.ino` sketch is designed for an Arduino MKR Zero and integrates with various components like the [`MPU 6050`](https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/), [`nRF24L01`](https://github.com/nRF24/RF24) radio device, and DarwinFPV 1104 brushless motors. The setup function initializes the radio transceiver and motor configurations, while the main loop handles radio input, flight control, and radio output. Important helper functions include `setDeltaTime` for time calculations and `sendRadio` for managing radio communications. The drone's functionality is supported by several key classes such as `PID`, `MotorController`, `Orientation`, and `RadioSendStack`, which manage tasks like PID control, motor power calculations, orientation data processing, and radio message handling. Custom data types like `vector3<T>` and `SmoothValue` are also used to facilitate data management.
+The `Drone.ino` sketch is designed for an Arduino MKR Zero and integrates with various components like the [`MPU 6050`](https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/), [`nRF24L01`](https://github.com/nRF24/RF24) radio device, and DarwinFPV 1104 brushless motors. The setup function initializes the radio transceiver and motor configurations, while the main loop handles radio input, flight control, and radio output. Important helper functions include `setDeltaTime` for time calculations and `sendRadio` for managing radio communications. The drone's functionality is supported by several key classes such as `PID`, `MotorController`, `Orientation`, and `RadioSendStack`, which manage tasks like PID control, motor power calculations, orientation data processing, and radio message handling. Custom data types like `vector3<T>` are also used to facilitate data management.
 
 ## Receiver
 
@@ -593,20 +571,20 @@ void setup() {
 
     previousTime = micros();
 
-    sendTimer.start(sendTime);
-
     ...
 }
 ```
-Firstly, Serial is configured with a baud rate of `115200`.
-Secondly, the radio transceiver is configured:
-  - `radio.begin()`, from the [`RF24`](https://github.com/nRF24/RF24) class, is called to initialize the radio transceiver.
-  - `configureRadio(radio)` is called to configure the transceiver's settings.
-  - Writing and reading pipes are opened with addresses defined in [`RadioData.h`](DroneLibrary/RadioData.h).
-  - `radio.startListening()` is called for the transceiver to start listening for instructions.
-Lastly, the time varibale and the send-countdown timer are initialized.
 
-> **_NOTE:_** The transceiver's begin and configuration functions are placed into while loops to prevent the program from proceeding if any part fails.
+Firstly, Serial is configured with a baud rate of `115200`.  
+Secondly, the radio transceiver is configured:
+- `radio.begin()` initializes the radio transceiver.
+- `configureRadio(radio)` configures the transceiver's settings.
+- Writing and reading pipes are opened with addresses defined in [`RadioData.h`](DroneLibrary/RadioData.h).
+- `radio.startListening()` enables the transceiver to listen for instructions.
+
+Lastly, the initial time is recorded.
+
+> **_NOTE:_** The transceiver's initialization and configuration are placed in while loops to prevent the program from proceeding if any part fails.
 
 #### Main Loop
 
@@ -621,13 +599,15 @@ void loop() {
     if (instructionHandler.read()) {
         uint8_t messageType = instructionHandler.getData(readBuffer);
         messageOut.messageType = messageType;
-        memcpy(messageOut.dataBuffer, &readBuffer, sizeof(messageOut.dataBuffer));
+        memcpy(messageOut.dataBuffer, readBuffer, sizeof(messageOut.dataBuffer));
 
-        bool result;
-        if (sendTimer.finished(sendTime)) 
-          result = send();
-        if (result)
+        bool result = false;
+        if (sending) 
+            result = send();
+        if (result) {
+            sending = false;
             instructionHandler.acknowledge(messageType);
+        }
 
         ...
     }
@@ -644,9 +624,11 @@ This part of the code checks for incoming serial messages from the controller us
 void loop() {
     ...
 
-    if (radio.available() && !sendTimer.finished()) {
+    if (radio.available()) {
+        sending = true;
+
         connectionStatus = connectionStatus | 0b010;
-        
+
         radio.read(&messageIn, sizeof(messageIn));
 
         switch (messageIn.messageType) {
@@ -660,6 +642,7 @@ void loop() {
                 break;
             default:
                 instructionHandler.write(messageIn.dataBuffer, messageIn.messageType);
+                break;
         }
     }
 
@@ -670,7 +653,7 @@ void loop() {
 }
 ```
 
-This part of the code checks for incoming radio messages from the drone. If a message is received, it processes the message based on its type and forwards it to the controller via the serial connection.
+This part of the code checks for incoming radio messages from the drone. If a message is received, it processes the message based on its type and forwards it to the controller via the serial connection. It also updates the connection status and delta time.
 
 ### Important Classes
 
@@ -704,11 +687,11 @@ The [`InstructionHandler`](DroneLibrary/InstructionHandler.h) class is used to m
 
 #### `Timer` (receiver)
 
-See [`Timer`](#timer-drone)
+See [`Timer`](#timer-drone).
 
 ### Summary of [Receiver](#receiver)
 
-The `Receiver.ino` sketch acts as a bridge between the drone and the controller. It uses an [`nRF24L01`](https://github.com/nRF24/RF24) radio device to communicate with the drone and a serial connection (115200 baud) to communicate with the controller. The sketch relies on the `InstructionHandler` class to manage serial communication and ensures that messages are properly relayed between the two systems. The setup function initializes the radio transceiver and serial communication, while the main loop handles serial input, radio communication, and message forwarding. The receiver monitors connection status for both the drone and its activation state, and uses timer-based message handling to improve communication reliability. Additionally, it ensures acknowledgment of serial messages and processes drone logs for better debugging and monitoring.
+The `Receiver.ino` sketch acts as a bridge between the drone and the controller. It uses an [`nRF24L01`](https://github.com/nRF24/RF24) radio device to communicate with the drone and a serial connection (115200 baud) to communicate with the controller. The sketch relies on the `InstructionHandler` class to manage serial communication and ensures that messages are properly relayed between the two systems. The setup function initializes the radio transceiver and serial communication, while the main loop handles serial input, radio communication, and message forwarding. The receiver monitors connection status for both the drone and its activation state and uses timer-based message handling to improve communication reliability. Additionally, it ensures acknowledgment of serial messages and processes drone logs for better debugging and monitoring.
 
 ## Control Panel
 
