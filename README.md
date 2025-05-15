@@ -1,6 +1,8 @@
 # Remote Controlled Drone
 
-This repository contains the software part of a multi-person project with the goal of creating a remote-controlled drone using Arduino microcontrollers, basic components, and 3D printers.
+This repository contains the software part of a multi-person project with the goal of creating a remote-controlled drone using Arduino microcontrollers, basic, consumer components, and 3D printers.
+
+<img src="docs/img/drone.jpg" alt="Drone" width="800">
 
 ## Table of Contents
 
@@ -696,6 +698,8 @@ The `Receiver.ino` sketch acts as a bridge between the drone and the controller.
 ## Control Panel
 
 The `Control Panel` is a web-based application designed to interact with the drone via the [`Receiver`](#receiver). It provides a graphical interface for controlling the drone, adjusting PID values, and monitoring telemetry data.
+
+<img src="docs/img/Control-Panel.png" alt="Control Panel" width="1280">
 
 ### Basic Structure
 
