@@ -23,7 +23,6 @@ radioStackElement* RadioSendStack::get(radioStackElement* currentElement, uint8_
 radioStackElement* RadioSendStack::create(const RadioMessage& data) {
     radioStackElement* element = (radioStackElement*)malloc(sizeof(radioStackElement));
     if (element == NULL) {
-        // Handle allocation error
         return nullptr;
     }
     count++;

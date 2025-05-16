@@ -196,7 +196,6 @@ class Terminal {
 			return;
 		}
 		else if (byte < 32 || byte > 126) {
-			// ignore non printable characters
 			return;
 		}
 
@@ -208,8 +207,6 @@ class Terminal {
 	}
 
 	addToTerminal(log) {
-		// console.log(log);
-
 		const output = document.getElementById("output");
 		if (log == this.previousLog) {
 			output.children[0].children[0].innerText = parseInt(output.children[0].children[0].innerText) + 1;
@@ -264,7 +261,6 @@ class WritingHandler {
 	}
 
 	acceptAcknowledge(messageType) {
-		// console.log(messageType, this.currentInstructionsType);
 		if (messageType != this.currentInstructionsType) {
 			return;
 		}
@@ -323,7 +319,6 @@ async function write() {
 	}
 	writing = true;
 
-	// console.log(port);
 	const writer = port.writable.getWriter();
 
 	const instructions = writingHandler.get();
@@ -340,7 +335,6 @@ async function read() {
 		return;
 	}
 	reading = true;
-	// console.log(port);
 	while (port.readable) {
 		const reader = port.readable.getReader();
 		try {
@@ -354,8 +348,6 @@ async function read() {
 				}
 				if (value) {
 					for (const byte of value) {
-						// console.log(byte);
-
 						const result = serialReader.read(byte);
 
 						if (!result.reading) {
@@ -441,6 +433,8 @@ async function read() {
 								document.getElementById("motor-bl").innerHTML = ((motorPowers.bottom_left + 127) / 255 * 100).toFixed(0) + "%";
 								document.getElementById("motor-br").innerHTML = ((motorPowers.bottom_right + 127) / 255 * 100).toFixed(0) + "%";
 							}
+
+							// status indicators
 							else if (result.messageTypeName == "connection-status") { 
 								const status = result.data[0];
 								const resetTime = 500;

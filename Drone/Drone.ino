@@ -54,9 +54,6 @@ Orientation orientation(MPU, positionOffset);
 
 bool activated = false;
 
-// CountdownTimer sendTimer;
-// long long sendTime = 20;
-
 bool sending = false;
 
 CountdownTimer miscTimer;
@@ -228,7 +225,6 @@ void loop() {
         motorController.calculatePower(orientation.velocity.z, orientation.angles.x, orientation.angles.y, deltaTime);
 
         #ifndef DEBUG
-          // Convert from -127..127 to 1000..2000 microseconds range
           motorTL.writeMicroseconds(map(motorPowerTL, -127, 127, 1000, 2000));
           motorTR.writeMicroseconds(map(motorPowerTR, -127, 127, 1000, 2000));
           motorBR.writeMicroseconds(map(motorPowerBR, -127, 127, 1000, 2000));
@@ -348,7 +344,7 @@ void activate() {
       motorBR.writeMicroseconds(power);
       motorBL.writeMicroseconds(power);
       time += deltaTime;
-      power = 1000 + (time * 500); // Ramp up to 1500μs
+      power = 1000 + (time * 500); 
   }
   #endif
 
@@ -370,7 +366,7 @@ void deactivate() {
       motorBR.writeMicroseconds(power);
       motorBL.writeMicroseconds(power);
       time += deltaTime;
-      power = 1500 - (time * 500); // Ramp down to 1000μs
+      power = 1500 - (time * 500);
   }
   #endif
   motorTL.writeMicroseconds(1000);

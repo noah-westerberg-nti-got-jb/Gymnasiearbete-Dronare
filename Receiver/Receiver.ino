@@ -22,9 +22,6 @@ RadioMessage messageOut, messageIn;
 
 long previousTime;
 
-// CountdownTimer sendTimer;
-// long long sendTime = 20;
-
 bool sending = true;
 
 uint8_t connectionStatus = 1;

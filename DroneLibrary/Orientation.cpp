@@ -65,15 +65,6 @@ void Orientation::readFromIMU(vector3<float>& acceleration, vector3<float>& angu
     float g = 9.82;
     acceleration *= g;
 
-    // #ifdef Serial
-    //     Serial.print("Acceleration: ");
-    //     Serial.print(acceleration.x);
-    //     Serial.print(", ");
-    //     Serial.print(acceleration.y);
-    //     Serial.print(", ");
-    //     Serial.print(acceleration.z);
-    // #endif
-
     // Gyroscope
     Wire.beginTransmission(MPU);
     Wire.write(0x43);
@@ -84,15 +75,6 @@ void Orientation::readFromIMU(vector3<float>& acceleration, vector3<float>& angu
     angularVelocity.x = -(int16_t(Wire.read() << 8 | Wire.read()) / 131.0);
     angularVelocity.z = (int16_t(Wire.read() << 8 | Wire.read()) / 131.0);
     angularVelocity.y = (int16_t(Wire.read() << 8 | Wire.read()) / 131.0);
-
-    // #ifdef Serial
-    //     Serial.print("      Angular velocity: ");
-    //     Serial.print(angularVelocity.x);
-    //     Serial.print(", ");
-    //     Serial.print(angularVelocity.y);
-    //     Serial.print(", ");
-    //     Serial.println(angularVelocity.z);
-    // #endif
 }
 
 void Orientation::readFromIMU() {
@@ -100,39 +82,20 @@ void Orientation::readFromIMU() {
     
     rawAcceleration -= accelerationOffset;
     rawAngularVelocity -= angularVelocityOffset;
-
-    // #ifdef Serial
-    //     Serial.print("Acceleration: ");
-    //     Serial.print(acceleration.x);
-    //     Serial.print(", ");
-    //     Serial.print(acceleration.y);
-    //     Serial.print(", ");
-    //     Serial.print(acceleration.z);
-    //     Serial.print("      Angular velocity: ");
-    //     Serial.print(angularVelocity.x);
-    //     Serial.print(", ");
-    //     Serial.print(angularVelocity.y);
-    //     Serial.print(", ");
-    //     Serial.println(angularVelocity.z);
-    // #endif
 }
 
 void Orientation::correctAccelerationLever(float deltaTime) {
     vector3<float> angularAccelDeg = (rawAngularVelocity - prevAngularVelocity) / deltaTime;
     prevAngularVelocity = rawAngularVelocity;
 
-    // 3) Convert angular rates and accelerations to radians for cross-products
     constexpr float deg2rad = PI / 180.0f;
-    vector3<float> omegaRad = rawAngularVelocity * deg2rad;        // ω in rad/s
-    vector3<float> alphaRad = angularAccelDeg  * deg2rad;          // α in rad/s²
+    vector3<float> omegaRad = rawAngularVelocity * deg2rad;
+    vector3<float> alphaRad = angularAccelDeg  * deg2rad;
 
-    // 4) Compute rotational acceleration terms at offset r (in m)
-    //    centripetal: ω × (ω × r)
     vector3<float> centripetal = crossProduct(omegaRad, crossProduct(omegaRad, r));
-    //    tangential: α × r
+
     vector3<float> tangential  = crossProduct(alphaRad, r);
 
-    // 5) Correct raw linear acceleration (m/s²) to get true C.G. accel
     acceleration = rawAcceleration - centripetal - tangential;
 }
 
@@ -168,13 +131,6 @@ void Orientation::calculateAngles(float deltaTime) {
     angles.x = limitAngle(angles.x);
     angles.y = limitAngle(angles.y);
     angles.z = limitAngle(angles.z);
-
-    // vector3<float> unsmothedAngularVelocityError = rawAngularVelocity - ((accelerationAngles - previousAccelerationAngles) / deltaTime);
-    // angularVelocityError.x.set(unsmothedAngularVelocityError.x);
-    // angularVelocityError.y.set(unsmothedAngularVelocityError.y);
-    // angularVelocityError.z.set(unsmothedAngularVelocityError.z);
-    // previousAccelerationAngles = accelerationAngles;
-    // angularVelocity = rawAngularVelocity + angularVelocityError;
 }
 
 void Orientation::calculateVelocity(float deltaTime) {

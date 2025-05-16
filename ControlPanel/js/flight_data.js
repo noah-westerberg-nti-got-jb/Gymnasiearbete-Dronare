@@ -19,8 +19,8 @@ function stopCollectingFlightData() {
     clearInterval(collection);
     const endTime = new Date();
     const dataToSave = {
-        startDateTime: startTime.toISOString(), // ISO 8601 format
-        endDateTime: endTime.toISOString(), // ISO 8601 format
+        startDateTime: startTime.toISOString(),
+        endDateTime: endTime.toISOString(),
         data: flightData
     };
     saveFlightDataToFile(dataToSave);
@@ -44,10 +44,9 @@ function hasDataChanged(newDataPoint) {
     return JSON.stringify(newData) !== JSON.stringify(lastData);
 }
 
-// Example function to collect data (should be called periodically or on data change)
 function collectFlightData() {
     const currentTime = new Date();
-    const elapsedTime = (currentTime - startTime) / 1000; // seconds since start
+    const elapsedTime = (currentTime - startTime) / 1000;
     const dataPoint = {
         time: elapsedTime,
         acceleration: {
